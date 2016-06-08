@@ -166,6 +166,12 @@ def write_player(path, bits):
         if 'season' in data:
             add_row(name, data.pop('season'), True)
         for key, value in iter_order(data):
+
+            if name.lower() == 'misc':
+                key = key.title()
+                if 'des' in value:
+                    key += ' ({})'.format(value.pop('des'))
+
             add_row(value.get('des', key), value)
 
     # Process section data
