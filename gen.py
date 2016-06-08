@@ -4,7 +4,7 @@ import os
 import yaml
 import json
 
-SRC = '_data/'
+SRC = '__data/'
 DST = 'mlb/players/'
 TAG = "<{0}>{1}</{0}>".format
 TAGA = "<{0} {2}>{1}</{0}>".format
@@ -12,7 +12,7 @@ JEKYLL = '---\ntitle: {}\n---\n'.format
 
 # https://en.wikipedia.org/wiki/Baseball_statistics
 lookup = {
-    'avg': 'Average',
+    'avg': 'Batting Average',
     'era': 'Earned Run Average',
     'ops': 'On-base Plus Slugging',
     'rbi': 'Run Batted In',
@@ -32,7 +32,7 @@ lookup = {
 }
 
 def all_players():
-    data, file_to_yaml = [], {}
+    data = []
     with open(SRC + 'all_players.csv', 'r') as fh:
         data = [l.strip().split(',') for l in fh.readlines()]
 
@@ -47,12 +47,15 @@ def all_players():
 
     data.sort(key=lambda x: x[0].split(' ')[-1].lower())
 
-    cnt = 0
+    cnt, skp = 0, 0
     for i, row in enumerate(data):
         name, bits = get_name(row[0])
         if name:
-            file_to_yaml[name] = bits
-            row[0] = TAGA('a', row[0], 'href="{}"'.format(name))
+            if write_player(name, bits):
+                row[0] = TAGA('a', row[0], 'href="{}"'.format(name))
+            else:
+                skp += 1
+                # print 'Skipped:', row[0]
         else:
             cnt += 1
             print 'Lost:', row[0]
@@ -62,13 +65,11 @@ def all_players():
             row[j] = TAG('td', cell)
         data[i] = TAG('tr', ''.join(row))
     data = '\n'.join(data)
-    print 'Missed:', cnt
+    print 'Missed:', cnt, 'Skipped:', skp
 
-    bits = JEKYLL('Players') + TAGA('table', title + data, 'class="table"')
+    bits = JEKYLL('Players') + TAGA('table', title + data, 'class="table table-sm"')
     with open(DST + 'index.html', 'w') as fh:
         fh.write(bits)
-
-    return file_to_yaml
 
 
 def get_name(
@@ -109,13 +110,72 @@ def get_name(
 def write_player(path, bits):
     print 'Processing Player:', path
     data = yaml.load(bits)
-    name = data['info']['first_name'] + data['info']['last_name']
+    info = data.pop('info')
+    name = info['first_name'] + ' ' + info['last_name']
 
+    cols, sections = set(), {'misc':{}}
+    for key, value in data.iteritems():
+        if not isinstance(value, dict):
+            continue
+
+        year = unicode(key[0:4])
+        if len(key) > 3 and year.isnumeric():
+            if year not in sections:
+                sections[year] = {}
+            sections[year][key[5:]] = value
+        elif value.keys() <= lookup.keys():
+            sections['misc'][key] = value
+        else:
+            continue
+
+        cols.update(value.keys())
+
+    # Setup vars for table generation
+    rows = []
+    cols -= set(['des']) # month designation
+    cols = sorted(cols)
+
+    # Table header
+    keys = cols[:]
+    for j, cell in enumerate(keys):
+        if cell in lookup:
+            cell = TAGA('abbr', cell.title(), 'title="{}"'.format(lookup.get(cell)))
+        else:
+            cell = cell.title()
+        keys[j] = TAG('th', cell)
+    title = '\n' + TAG('tr', '\n' + TAG('th', '&nbsp;') + '\n' + '\n'.join(keys) + '\n') + '\n'
+    title = '\n' + TAGA('thead', title, 'class="thead-default"') + '\n'
+
+    def add_row(name, data, emph=False):
+        row = [TAG('th', name.replace('_', ' '))]
+        row += [TAG('td', data.get(key, '-')) for key in cols]
+        row = '\n' + '\n'.join(row) + '\n'
+        row = TAGA('tr', row, 'class="table-active"') if emph else TAG('tr', row)
+        rows.append(row)
+
+    def add_section(name, data):
+        if 'season' in data:
+            add_row(name, data.pop('season'), True)
+        for key, value in iter_order(data):
+            add_row(value.get('des', key), value)
+
+    # Process section data
+    add_section('Misc', sections.pop('misc'))
+    for key, value in iter_order(sections):
+        add_section(key + ' Season', value)
+
+    bits = TAGA('p', TAGA('a', 'Return to Players Page', 'href="/mlb/players/"'), ' class="text-xs-right"')
+    bits += TAGA('table', title + '\n'.join(rows) + '\n', 'class="table table-sm"')
     with open(path[1:], 'w') as fh: # remove leading /
         fh.write(JEKYLL(name) + bits)
+    return True
+
+
+def iter_order(dic):
+    assert isinstance(dic, dict), 'You stupid?'
+    for key in sorted(dic.keys(), key=lambda x: x.lower()):
+        yield key, dic[key]
 
 
 if __name__ == '__main__':
-    file_to_yaml = all_players()
-    for fname, bits in file_to_yaml.iteritems():
-        write_player(fname, bits)
+    all_players()
