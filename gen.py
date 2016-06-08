@@ -43,12 +43,14 @@ def all_players():
         else:
             cell = cell.title()
         keys[j] = TAG('th', cell)
-    title = TAG('tr', ''.join(keys))
+    title = '\n' + TAG('tr', '\n' + '\n'.join(keys) + '\n') + '\n'
+    title = '\n' + TAGA('thead', title, 'class="thead-default"') + '\n'
 
     data.sort(key=lambda x: x[0].split(' ')[-1].lower())
 
-    cnt, skp = 0, 0
+    cnt, skp, first = 0, 0, 'A'
     for i, row in enumerate(data):
+        real_name = row[0]
         name, bits = get_name(row[0])
         if name:
             if write_player(name, bits):
@@ -63,7 +65,14 @@ def all_players():
         for j, cell in enumerate(row):
             cell = cell if cell else 'n/a'
             row[j] = TAG('td', cell)
-        data[i] = TAG('tr', ''.join(row))
+        data[i] = TAG('tr', '\n' + '\n'.join(row) + '\n')
+
+        # Dividers between last names
+        check = real_name.split(' ')[-1].upper()[0]
+        if check != first:
+            data[i] = title.replace('Name', check + "'s", 1) + data[i]
+            first = check
+
     data = '\n'.join(data)
     print 'Missed:', cnt, 'Skipped:', skp
 
