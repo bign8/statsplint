@@ -122,6 +122,15 @@ def write_player(path, bits):
     info = data.pop('info')
     name = info['first_name'] + ' ' + info['last_name']
 
+    # TODO: verify image is valid
+    image = """
+<p class="text-xs-center">
+  <img src="http://mlb.mlb.com/mlb/images/players/head_shot/{id}.jpg" alt="{name}">
+</p>""".format(
+        name=name,
+        id=data.pop('id')
+    ).strip()
+
     cols, sections = set(), {'misc':{}}
     for key, value in data.iteritems():
         if not isinstance(value, dict):
@@ -179,7 +188,8 @@ def write_player(path, bits):
     for key, value in iter_order(sections):
         add_section(key + ' Season', value)
 
-    bits = TAGA('p', TAGA('a', 'Return to Players Page', 'href="/mlb/players/"'), ' class="text-xs-right"')
+    bits = image + "\n"
+    bits += TAGA('p', TAGA('a', 'Return to Players Page', 'href="/mlb/players/"'), ' class="text-xs-right"')
     bits += TAGA('table', title + '\n'.join(rows) + '\n', 'class="table table-sm"')
     with open(path[1:], 'w') as fh: # remove leading /
         fh.write(JEKYLL(name) + bits)
