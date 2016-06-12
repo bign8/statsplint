@@ -4,7 +4,7 @@ import os
 import yaml
 import json
 
-SRC = '__data/'
+SRC = '__data/data/'
 DST = 'mlb/players/'
 TAG = "<{0}>{1}</{0}>".format
 TAGA = "<{0} {2}>{1}</{0}>".format
@@ -202,5 +202,119 @@ def iter_order(dic):
         yield key, dic[key]
 
 
+def load_bios_teams():
+    print 'Loading prefetch data...'
+    bios, teams = {}, {}
+    with open(SRC + 'bios.yml') as fh:
+        bios = yaml.load(fh)
+    with open(SRC + 'teams.yml') as fh:
+        teams = yaml.load(fh)
+    print 'Prefetch data loaded.'
+    return bios, teams
+
+
+def gen_teams(teams, bios):
+    print 'Generating team pages...'
+    objs = []  # obj['league'], obj['division']
+    for slug, obj in teams.iteritems():
+        obj['slug'] = slug
+        obj['division'] = obj['division'].split(' ')[1]
+        obj['league'] = 'American League' if obj['league'] == 'AL' else 'National League'
+        obj['games'] = obj['wins'] + obj['loses']
+        objs.append(obj)
+
+    # TODO: generate stats for leagues/divisions
+
+    rows = [
+        """
+        <thead class="thead-default">
+            <tr>
+                <th>Name</th>
+                <th>Wins</th>
+                <th>Loses</th>
+                <th>Games</th>
+            </tr>
+        </thead>
+        """
+    ]
+
+    l, d = '', ''
+    for team in sorted(objs, key=lambda x: x['league'] + x['division']):
+        if team['division'] != d:
+            l, d = team['league'], team['division']
+            rows.append("""
+            <tr class="table-active">
+                <th colspan="4" class="text-xs-center">{} &mdash; {}</th>
+            </tr>
+            """.format(l, d))
+
+        link = gen_team(team, bios)
+
+        rows.append("""
+        <tr>
+            <td>{}</td>
+            <td>{}</td>
+            <td>{}</td>
+            <td>{}</td>
+        </tr>
+        """.format(link, team['wins'], team['loses'], team['wins'] + team['loses']))
+
+    with open('mlb/teams/index.html', 'w') as fh:
+        fh.write(JEKYLL('Teams') + TAGA('table', '\n'.join(rows) + '\n', 'class="table table-sm"'))
+    print 'Team pages generated.'
+
+team_tpl = """
+<strong>League:</strong> {league}<br/>
+<strong>Division:</strong> {division}<br/>
+<strong>Wins:</strong> {wins}<br/>
+<strong>Loses:</strong> {loses}<br/>
+<strong>Games:</strong> {games}
+""".format
+
+
+def gen_team(team, bios):
+    path, rows = 'mlb/teams/{}.html'.format(team['slug']),  ["""
+    <thead class="thead-default">
+        <tr>
+            <th>&nbsp;</th>
+            <th>Name</th>
+            <th>Number</th>
+        </tr>
+    </thead>
+    """]
+
+    for player_id in team['players']:
+        if player_id not in bios:
+            print '\t', 'Missing Player ID:', player_id
+            continue
+        player = bios[player_id]
+        rows.append("""
+        <tr>
+            <td>
+                <img src="{imagefile}" alt="{name}">
+            </td>
+            <td>
+                <a href="{link}">{name}</a>
+            </td>
+            <td>{jersey_number}</td>
+        </tr>
+        """.format(link=player_link(player), **player))
+
+    bits = team_tpl(**team)
+    bits += TAGA('table', '\n'.join(rows) + '\n', 'class="table table-sm"')
+    with open(path, 'w') as fh:
+        fh.write(JEKYLL(team['name']) + bits)
+
+    return TAGA('a', team['name'], 'href="/{}"'.format(path))
+
+
+def player_link(player):
+    first = player['first_name'].replace(' ', '-')
+    last = player['last_name'].replace(' ', '-')
+    return '/mlb/players/' + first + '_' + last + '.html'
+
+
 if __name__ == '__main__':
-    all_players()
+    bios, teams = load_bios_teams()
+    gen_teams(teams, bios)
+    gen_players(bios, teams)
