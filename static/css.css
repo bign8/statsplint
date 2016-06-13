@@ -3,6 +3,14 @@
   padding-bottom: 20px;
 }*/
 
+/* Fix carrot in navbar */
+.navbar-nav .nav-link {
+  display: inline-block;
+}
+.navbar-nav .nav-link+.nav-link {
+  margin-left: 0;
+}
+
 .navbar {
   margin-bottom: 20px;
 }
