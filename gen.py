@@ -239,12 +239,12 @@ def gen_teams(teams, bios):
     ]
 
     l, d = '', ''
-    for team in sorted(objs, key=lambda x: x['league'] + x['division']):
+    for team in sorted(objs, key=lambda x: [x['league'], x['division'], -int(x['wins']), x['loses']]):
         if team['division'] != d:
             l, d = team['league'], team['division']
             rows.append("""
             <tr class="table-active">
-                <th colspan="4" class="text-xs-center">{} &mdash; {}</th>
+                <th colspan="4">{} &mdash; {}</th>
             </tr>
             """.format(l, d))
 
