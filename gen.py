@@ -156,10 +156,9 @@ def write_player(path, csvbits, ymlbits):
 
     cols, sections = set(), {'misc':{}}
     for d_row in csvbits: 
-        # FIXME: Hackey solution
-        rt = d_row['month'] 
-        del d_row['month'] 
+        rt = d_row.pop('month') 
 
+        # FIXME: Hackey solution
         if '20' not in rt: 
             sections['misc'][rt] = d_row
             continue 
@@ -214,7 +213,7 @@ def write_player(path, csvbits, ymlbits):
 
         if name.lower() != 'misc': 
             seas_val = '{} Season'.format(name)
-            add_row(seas_val, data.pop(seas_val))
+            add_row(seas_val, data.pop(seas_val), True)
         
         else: 
             for k, v in data.iteritems(): 
